@@ -118,7 +118,7 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
         states.set_state(user_id, "managing_products")
         return await bot.send_message(
             chat_id,
-            "📦 محصولات:\nبرای فعال/غیرفعال کردن روی محصول بزن\nبرای حذف: حذف [id]",
+            "📦 محصولات:\nبرای فعال/غیرفعال کردن روی نام محصول بزن\nبرای حذف روی 🗑 بزن",
             chat_keypad=kb_products_admin(products), chat_keypad_type=ChatKeypadTypeEnum.NEW,
             reply_to_message_id=msg.message_id,
         )
@@ -131,20 +131,21 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
                 chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
                 reply_to_message_id=msg.message_id,
             )
-        if text.startswith("حذف "):
-            pid = text.replace("حذف ", "").strip()
-            if db.delete_product(pid):
+        products = db.get_all_products()
+
+        # حذف با دکمه 🗑
+        for pid, p in products.items():
+            if text == f"🗑 {p['name']}":
+                db.delete_product(pid)
                 products = db.get_all_products()
                 return await bot.send_message(
-                    chat_id, f"✅ محصول حذف شد.",
+                    chat_id, f"✅ {p['name']} حذف شد.",
                     chat_keypad=kb_products_admin(products) if products else kb_admin_main(),
                     chat_keypad_type=ChatKeypadTypeEnum.NEW,
                     reply_to_message_id=msg.message_id,
                 )
-            return await bot.send_message(chat_id, "❌ محصول پیدا نشد.", reply_to_message_id=msg.message_id)
 
-        # کلیک روی محصول → toggle
-        products = db.get_all_products()
+        # toggle فعال/غیرفعال
         for pid, p in products.items():
             status = "✅" if p.get("active", True) else "❌"
             if text == f"{status} {p['name']}":

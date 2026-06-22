@@ -85,7 +85,8 @@ def delete_product(pid: str) -> bool:
 
 def create_order(user_id: str, product_id: str) -> str:
     data = _load()
-    order_id = f"{int(time.time())}_{random.randint(1000, 9999)}"
+    data["order_counter"] = data.get("order_counter", 0) + 1
+    order_id = str(data["order_counter"])
     data["orders"][order_id] = {
         "user_id":      user_id,
         "product_id":   product_id,

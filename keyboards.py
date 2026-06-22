@@ -61,6 +61,9 @@ def kb_products_admin(products: dict) -> Keypad:
     rows = []
     for pid, p in products.items():
         status = "✅" if p.get("active", True) else "❌"
-        rows.append(_row(f"{status} {p['name']}"))
+        rows.append(KeypadRow(buttons=[
+            _b(f"{status} {p['name']}"),
+            _b(f"🗑 {p['name']}"),
+        ]))
     rows.append(_row("🔙 بازگشت به پنل"))
     return Keypad(rows=rows)
