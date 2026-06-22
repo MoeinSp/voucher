@@ -75,7 +75,7 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
         )
 
     if text == "🛒 خرید ووچر":
-        products = db.get_all_products()
+        products = db.get_active_products()
         if not products:
             return await bot.send_message(
                 chat_id, "⚠️ در حال حاضر محصولی موجود نیست.\nبعداً دوباره چک کن.",
@@ -97,7 +97,7 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
                 reply_to_message_id=msg.message_id,
             )
 
-        products = db.get_all_products()
+        products = db.get_active_products()
         selected = None
         for pid, p in products.items():
             if text == f"🔖 {p['name']} — {p['price']:,} تومان":
