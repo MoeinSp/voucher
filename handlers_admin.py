@@ -115,15 +115,17 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
         products = db.get_all_products()
         if not products:
             return await bot.send_message(chat_id, "⚠️ محصولی نداری.", reply_to_message_id=msg.message_id)
-        states.set_state(user_id, "managing_products")
+        states.set_state(user_id, "managing_products", page=0)
         return await bot.send_message(
             chat_id,
             "📦 محصولات:\nبرای فعال/غیرفعال کردن روی نام محصول بزن\nبرای حذف روی 🗑 بزن",
-            chat_keypad=kb_products_admin(products), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+            chat_keypad=kb_products_admin(products, 0), chat_keypad_type=ChatKeypadTypeEnum.NEW,
             reply_to_message_id=msg.message_id,
         )
 
     if step == "managing_products":
+        page = states.get_state(user_id)["data"].get("page", 0)
+
         if text == "🔙 بازگشت به پنل":
             states.clear_state(user_id)
             return await bot.send_message(
@@ -131,6 +133,25 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
                 chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
                 reply_to_message_id=msg.message_id,
             )
+
+        if text == "▶️ بعدی":
+            page += 1
+            states.set_state(user_id, "managing_products", page=page)
+            return await bot.send_message(
+                chat_id, "📦 محصولات:",
+                chat_keypad=kb_products_admin(db.get_all_products(), page),
+                chat_keypad_type=ChatKeypadTypeEnum.NEW, reply_to_message_id=msg.message_id,
+            )
+
+        if text == "◀️ قبلی":
+            page = max(0, page - 1)
+            states.set_state(user_id, "managing_products", page=page)
+            return await bot.send_message(
+                chat_id, "📦 محصولات:",
+                chat_keypad=kb_products_admin(db.get_all_products(), page),
+                chat_keypad_type=ChatKeypadTypeEnum.NEW, reply_to_message_id=msg.message_id,
+            )
+
         products = db.get_all_products()
 
         # حذف با دکمه 🗑
@@ -140,7 +161,7 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
                 products = db.get_all_products()
                 return await bot.send_message(
                     chat_id, f"✅ {p['name']} حذف شد.",
-                    chat_keypad=kb_products_admin(products) if products else kb_admin_main(),
+                    chat_keypad=kb_products_admin(products, page) if products else kb_admin_main(),
                     chat_keypad_type=ChatKeypadTypeEnum.NEW,
                     reply_to_message_id=msg.message_id,
                 )
@@ -153,7 +174,7 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
                 label = "فعال ✅" if new_state else "غیرفعال ❌"
                 return await bot.send_message(
                     chat_id, f"{p['name']} — {label}",
-                    chat_keypad=kb_products_admin(db.get_all_products()),
+                    chat_keypad=kb_products_admin(db.get_all_products(), page),
                     chat_keypad_type=ChatKeypadTypeEnum.NEW,
                     reply_to_message_id=msg.message_id,
                 )

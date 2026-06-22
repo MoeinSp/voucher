@@ -81,14 +81,17 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
                 chat_id, "⚠️ در حال حاضر محصولی موجود نیست.\nبعداً دوباره چک کن.",
                 reply_to_message_id=msg.message_id,
             )
-        states.set_state(user_id, "selecting_product")
+        states.set_state(user_id, "selecting_product", page=0)
         return await bot.send_message(
             chat_id, "🛒 کدوم محصول رو میخوای؟",
-            chat_keypad=kb_products(products), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+            chat_keypad=kb_products(products, 0), chat_keypad_type=ChatKeypadTypeEnum.NEW,
             reply_to_message_id=msg.message_id,
         )
 
     if step == "selecting_product":
+        page = states.get_state(user_id)["data"].get("page", 0)
+        products = db.get_active_products()
+
         if text == "🔙 بازگشت":
             states.clear_state(user_id)
             return await bot.send_message(
@@ -97,7 +100,24 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
                 reply_to_message_id=msg.message_id,
             )
 
-        products = db.get_active_products()
+        if text == "▶️ بعدی":
+            page += 1
+            states.set_state(user_id, "selecting_product", page=page)
+            return await bot.send_message(
+                chat_id, "🛒 کدوم محصول رو میخوای؟",
+                chat_keypad=kb_products(products, page), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+                reply_to_message_id=msg.message_id,
+            )
+
+        if text == "◀️ قبلی":
+            page = max(0, page - 1)
+            states.set_state(user_id, "selecting_product", page=page)
+            return await bot.send_message(
+                chat_id, "🛒 کدوم محصول رو میخوای؟",
+                chat_keypad=kb_products(products, page), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+                reply_to_message_id=msg.message_id,
+            )
+
         selected = None
         for pid, p in products.items():
             if text == f"🔖 {p['name']} — {p['price']:,} تومان":
