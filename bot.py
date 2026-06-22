@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 import logging
 from pathlib import Path
 
@@ -16,9 +17,14 @@ logging.getLogger("rubpy").setLevel(logging.ERROR)
 TOKEN = os.getenv("BOT_TOKEN")
 SUPER_ADMIN = "b0CARTT0nEn086a83b389093604f7527"
 
-bot = BotClient(TOKEN)
+BOT_START_TIME = int(time.time())
+bot = BotClient(
+    token=TOKEN,
+    timeout=15.0,
+    rate_limit=0.1,
+)
 
-offset_dir = Path(__file__).parent / "data_offset"
+offset_dir = Path("data_offset")
 offset_dir.mkdir(parents=True, exist_ok=True)
 bot._offset_file = offset_dir / "offset_id"
 bot.next_offset_id = bot._load_persisted_offset()
