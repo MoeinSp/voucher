@@ -15,8 +15,8 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger("rubpy").setLevel(logging.ERROR)
 
 TOKEN = os.getenv("BOT_TOKEN")
-SUPER_ADMIN = "b0CARTT0mxL0a9061ac5624305798abf"
-# SUPER_ADMIN = "b0CARTT0nEn086a83b389093604f7527"
+# SUPER_ADMIN = "b0CARTT0mxL0a9061ac5624305798abf"
+SUPER_ADMIN = "b0CARTT0nEn086a83b389093604f7527"
 
 BOT_START_TIME = int(time.time())
 bot = BotClient(
@@ -149,8 +149,13 @@ async def _run_polling():
         elapsed = time.monotonic() - t0
 
         if updates:
-            for u in updates:
-                asyncio.create_task(bot.process_update(u))
+            results = await asyncio.gather(
+                *(bot.process_update(u) for u in updates),
+                return_exceptions=True,
+            )
+            for r in results:
+                if isinstance(r, Exception):
+                    logging.error("update processing failed: %s", r)
             backoff = 1.0
             await asyncio.sleep(0.3)
         elif elapsed < 5:
