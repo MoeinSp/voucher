@@ -31,6 +31,32 @@ bot._offset_file = offset_dir / "offset_id"
 bot.next_offset_id = bot._load_persisted_offset()
 
 
+# ── میدلور: رد کردن پیام‌های قدیمی ───────────────────────────────────────────
+# اگه افست ریست شه، روبیکا کل بک‌لاگ قدیمی رو دوباره می‌فرسته. این میدلور
+# هر آپدیتی که زمانش قبل از روشن‌شدن ربات باشه رو رد می‌کنه تا ربات به
+# پیام‌های کهنه جواب نده. به محض دیدن اولین پیام تازه، چک خاموش می‌شه.
+_skip_old_done = False
+_skipped_count = 0
+
+
+@bot.middleware()
+async def skip_old_updates(client, update, call_next):
+    global _skip_old_done, _skipped_count
+
+    if not _skip_old_done:
+        ut = getattr(update, "update_time", None)
+        if ut is None:
+            return await call_next()
+        if int(ut) < BOT_START_TIME:
+            _skipped_count += 1
+            if _skipped_count % 100 == 0:
+                print(f"[skip-old] skipped {_skipped_count} old updates")
+            return  # رد کن — به هندلر نرسون
+        _skip_old_done = True  # از این به بعد همه‌چی تازه‌ست
+
+    return await call_next()
+
+
 def is_super(user_id: str) -> bool:
     return str(user_id) == SUPER_ADMIN
 
