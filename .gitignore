@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 .venv/
 .rubpy_offset_*
+data_offset/*
+!data_offset/.gitkeep

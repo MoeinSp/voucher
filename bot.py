@@ -1,6 +1,7 @@
 import asyncio
 import os
 import logging
+from pathlib import Path
 
 from dotenv import load_dotenv
 from rubpy import BotClient
@@ -15,11 +16,12 @@ logging.getLogger("rubpy").setLevel(logging.ERROR)
 TOKEN = os.getenv("BOT_TOKEN")
 SUPER_ADMIN = "b0CARTT0nEn086a83b389093604f7527"
 
-_data_dir = os.path.dirname(os.getenv("DATA_FILE", "") or __file__)
-if _data_dir and os.path.isdir(_data_dir):
-    os.chdir(_data_dir)
-
 bot = BotClient(TOKEN)
+
+offset_dir = Path(__file__).parent / "data_offset"
+offset_dir.mkdir(parents=True, exist_ok=True)
+bot._offset_file = offset_dir / "offset_id"
+bot.next_offset_id = bot._load_persisted_offset()
 
 
 def is_super(user_id: str) -> bool:
