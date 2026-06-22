@@ -15,8 +15,8 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger("rubpy").setLevel(logging.ERROR)
 
 TOKEN = os.getenv("BOT_TOKEN")
-# SUPER_ADMIN = "b0CARTT0mxL0a9061ac5624305798abf"
-SUPER_ADMIN = "b0CARTT0nEn086a83b389093604f7527"
+SUPER_ADMIN = "b0CARTT0mxL0a9061ac5624305798abf"
+# SUPER_ADMIN = "b0CARTT0nEn086a83b389093604f7527"
 
 BOT_START_TIME = int(time.time())
 bot = BotClient(
