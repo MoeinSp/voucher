@@ -171,22 +171,14 @@ async def _notify_admins(result: tuple, user_chat_id: str, update: Update):
 
 
 async def _run_polling():
-    """
-    حلقه‌ی polling با backoff.
-    اگه روبیکا TOO_REQUESTS بده، تابع updater خطا رو می‌بلعه و [] برمی‌گردونه
-    و چون خیلی سریع (< ۵ ثانیه، نه long-poll واقعی) برمی‌گرده، عقب‌نشینی می‌کنیم
-    تا یه getUpdates موفق بشه و افست ذخیره شه. بعد از اون cadence سالم می‌مونه.
-    """
+    """حلقه‌ی polling ساده بدون backoff."""
     await bot.start()
-    backoff = 1.0
     while bot.running:
-        t0 = time.monotonic()
         try:
             updates = await bot.updater(limit=100, poll_timeout=30)
         except Exception as e:
             logging.error("polling error: %s", e)
             updates = []
-        elapsed = time.monotonic() - t0
 
         if updates:
             results = await asyncio.gather(
@@ -196,15 +188,8 @@ async def _run_polling():
             for r in results:
                 if isinstance(r, Exception):
                     logging.error("update processing failed: %s", r)
-            backoff = 1.0
-            await asyncio.sleep(0.3)
-        elif elapsed < 5:
-            # جواب سریع و خالی = به احتمال زیاد TOO_REQUESTS → عقب‌نشینی نمایی
-            await asyncio.sleep(backoff)
-            backoff = min(backoff * 2, 30.0)
-        else:
-            # long-poll عادی که پیامی نداشت → cadence سالم
-            backoff = 1.0
+
+        await asyncio.sleep(0.5)
 
 
 async def main():
