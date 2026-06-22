@@ -3,7 +3,7 @@ from rubpy.bot.models import Keypad, KeypadRow, Button, ButtonTypeEnum
 from rubpy.bot.enums import ChatKeypadTypeEnum
 
 BTE = ButtonTypeEnum
-PAGE_SIZE = 8
+PAGE_SIZE = 5
 
 
 def _b(text: str) -> Button:

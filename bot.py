@@ -39,20 +39,37 @@ _skip_old_done = False
 _skipped_count = 0
 
 
+def _update_ts(update) -> int | None:
+    """زمان آپدیت به ثانیه. توی polling فیلد update_time خالیه و باید از new_message.time خوند."""
+    ut = getattr(update, "update_time", None)
+    if ut is None:
+        m = getattr(update, "new_message", None) or getattr(update, "updated_message", None)
+        ut = getattr(m, "time", None) if m else None
+    if ut is None:
+        return None
+    try:
+        v = int(ut)
+    except (TypeError, ValueError):
+        return None
+    if v > 1_000_000_000_000:  # میلی‌ثانیه → ثانیه
+        v //= 1000
+    return v
+
+
 @bot.middleware()
 async def skip_old_updates(client, update, call_next):
     global _skip_old_done, _skipped_count
 
     if not _skip_old_done:
-        ut = getattr(update, "update_time", None)
-        if ut is None:
-            return await call_next()
-        if int(ut) < BOT_START_TIME:
+        ts = _update_ts(update)
+        if ts is None:
+            return await call_next()  # زمان نداریم، رد نکن
+        if ts < BOT_START_TIME:
             _skipped_count += 1
             if _skipped_count % 100 == 0:
                 print(f"[skip-old] skipped {_skipped_count} old updates")
-            return  # رد کن — به هندلر نرسون
-        _skip_old_done = True  # از این به بعد همه‌چی تازه‌ست
+            return  # پیام قدیمی — به هندلر نرسون
+        _skip_old_done = True  # اولین پیام تازه؛ از این به بعد چک خاموش
 
     return await call_next()
 
