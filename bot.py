@@ -35,41 +35,38 @@ bot.next_offset_id = bot._load_persisted_offset()
 # اگه افست ریست شه، روبیکا کل بک‌لاگ قدیمی رو دوباره می‌فرسته. این میدلور
 # هر آپدیتی که زمانش قبل از روشن‌شدن ربات باشه رو رد می‌کنه تا ربات به
 # پیام‌های کهنه جواب نده. به محض دیدن اولین پیام تازه، چک خاموش می‌شه.
-_skip_old_done = False
-_skipped_count = 0
-
-
-def _update_ts(update) -> int | None:
-    """زمان آپدیت به ثانیه. توی polling فیلد update_time خالیه و باید از new_message.time خوند."""
-    ut = getattr(update, "update_time", None)
-    if ut is None:
-        m = getattr(update, "new_message", None) or getattr(update, "updated_message", None)
-        ut = getattr(m, "time", None) if m else None
-    if ut is None:
-        return None
-    try:
-        v = int(ut)
-    except (TypeError, ValueError):
-        return None
-    if v > 1_000_000_000_000:  # میلی‌ثانیه → ثانیه
-        v //= 1000
-    return v
+count = 0
+done_flag = False
 
 
 @bot.middleware()
-async def skip_old_updates(client, update, call_next):
-    global _skip_old_done, _skipped_count
+async def skip_old_updates(client, update: Update, call_next):
+    from rubpy.bot.models import InlineMessage
+    if isinstance(update, InlineMessage):
+        return await call_next()
 
-    if not _skip_old_done:
-        ts = _update_ts(update)
-        if ts is None:
-            return await call_next()  # زمان نداریم، رد نکن
-        if ts < BOT_START_TIME:
-            _skipped_count += 1
-            if _skipped_count % 100 == 0:
-                print(f"[skip-old] skipped {_skipped_count} old updates")
-            return  # پیام قدیمی — به هندلر نرسون
-        _skip_old_done = True  # اولین پیام تازه؛ از این به بعد چک خاموش
+    global count
+    global done_flag
+
+    # توی polling زمان توی new_message.time هست نه update_time
+    ut = update.update_time
+    if ut is None:
+        m = getattr(update, "new_message", None) or getattr(update, "updated_message", None)
+        ut = getattr(m, "time", None) if m else None
+
+    if done_flag:
+        pass
+    elif ut is None:
+        return await call_next()
+    elif int(ut) < BOT_START_TIME:
+        # پیام قدیمی است
+        count += 1
+        if count % 2 == 0:
+            print(count)
+        return
+    else:
+        print("DONE ✅")
+        done_flag = True
 
     return await call_next()
 
@@ -203,7 +200,6 @@ async def _run_polling():
             await asyncio.sleep(0.3)
         elif elapsed < 5:
             # جواب سریع و خالی = به احتمال زیاد TOO_REQUESTS → عقب‌نشینی نمایی
-            print(f"[poll] empty/fast ({elapsed:.1f}s) — backoff {backoff:.0f}s")
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 30.0)
         else:
