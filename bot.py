@@ -15,8 +15,11 @@ logging.getLogger("rubpy").setLevel(logging.ERROR)
 TOKEN = os.getenv("BOT_TOKEN")
 SUPER_ADMIN = "b0CARTT0nEn086a83b389093604f7527"
 
-_workdir = os.path.dirname(os.getenv("DATA_FILE", "")) or "."
-bot = BotClient(TOKEN, workdir=_workdir)
+_data_dir = os.path.dirname(os.getenv("DATA_FILE", "") or __file__)
+if _data_dir and os.path.isdir(_data_dir):
+    os.chdir(_data_dir)
+
+bot = BotClient(TOKEN)
 
 
 def is_super(user_id: str) -> bool:
