@@ -25,7 +25,7 @@ bot = BotClient(
     rate_limit=0.1,
 )
 
-offset_dir = Path("data_offset")
+offset_dir = Path(__file__).parent / "data_offset"
 offset_dir.mkdir(parents=True, exist_ok=True)
 bot._offset_file = offset_dir / "offset_id"
 bot.next_offset_id = bot._load_persisted_offset()
