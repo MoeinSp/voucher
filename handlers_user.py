@@ -34,14 +34,19 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
                 reply_to_message_id=msg.message_id,
             )
 
+        if text != "__photo__":
+            return await bot.send_message(
+                chat_id,
+                "📸 لطفاً فقط عکس رسید واریز رو بفرست.",
+                chat_keypad=kb_cancel(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+                reply_to_message_id=msg.message_id,
+            )
+
         state_data = states.get_state(user_id) or {}
         receipt_msg_id = state_data.get("data", {}).get("receipt_msg_id")
-        is_photo = text == "__photo__"
-        receipt = "📸 عکس رسید" if is_photo else text.strip()
         db.update_order(
-            order_id, status="waiting_confirm", receipt=receipt,
+            order_id, status="waiting_confirm", receipt="📸 عکس رسید",
             receipt_msg_id=receipt_msg_id,
-            receipt_text=None if is_photo else receipt,
         )
         states.clear_state(user_id)
 
