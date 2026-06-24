@@ -3,7 +3,7 @@
 """
 import db
 import states
-from keyboards import kb_main, kb_products, kb_cancel, kb_back, ChatKeypadTypeEnum
+from keyboards import kb_main, kb_products, kb_cancel, kb_back, kb_inline_cancel, kb_inline_support_cancel, ChatKeypadTypeEnum
 
 
 async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
@@ -25,20 +25,11 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
             states.clear_state(user_id)
             return
 
-        if text in ("❌ لغو سفارش", "🔙 بازگشت"):
-            db.update_order(order_id, status="cancelled")
-            states.clear_state(user_id)
-            return await bot.send_message(
-                chat_id, "❌ سفارش لغو شد.",
-                chat_keypad=kb_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
-                reply_to_message_id=msg.message_id,
-            )
-
         if text != "__photo__":
             return await bot.send_message(
                 chat_id,
                 "📸 لطفاً فقط عکس رسید واریز رو بفرست.",
-                chat_keypad=kb_cancel(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+                inline_keypad=kb_inline_cancel(),
                 reply_to_message_id=msg.message_id,
             )
 
@@ -69,9 +60,11 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
         states.clear_state(user_id)
         return await bot.send_message(
             chat_id,
-            f"سلام {name}! 👋\n\nبه ربات ووچر خوش اومدی 🎟\nچیکار میتونم برات بکنم؟",
+            f"سلام {name} 👋\n"
+            f"━━━━━━━━━━━━━━━━━\n"
+            f"🎟 به فروشگاه ووچر خوش اومدی!\n\n"
+            f"از منوی پایین یه گزینه انتخاب کن:",
             chat_keypad=kb_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
-            reply_to_message_id=msg.message_id,
         )
 
     if text == "🛒 خرید ووچر":
@@ -144,9 +137,8 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
             f"{card_number}\n"
             f"به نام: {card_name}\n\n"
             f"━━━━━━━━━━━━━━━━━\n"
-            f"📸 بعد از واریز، عکس رسید رو اینجا بفرست.\n\n"
-            f"برای لغو دکمه زیر رو بزن 👇",
-            chat_keypad=kb_cancel(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+            f"📸 بعد از واریز، عکس رسید رو اینجا بفرست.",
+            inline_keypad=kb_inline_cancel(),
             reply_to_message_id=msg.message_id,
         )
 
@@ -154,26 +146,34 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
         orders = db.get_user_orders(user_id)
         if not orders:
             return await bot.send_message(
-                chat_id, "📦 هنوز سفارشی ثبت نکردی.",
-                reply_to_message_id=msg.message_id,
+                chat_id, "📦 هنوز هیچ سفارشی ثبت نکردی.",
             )
         status_map = {
-            "pending":          "⏳ در انتظار رسید",
-            "waiting_confirm":  "🔍 در حال بررسی",
-            "done":             "✅ تحویل داده شده",
-            "rejected":         "❌ رد شده",
-            "cancelled":        "🚫 لغو شده",
+            "pending":         ("⏳", "در انتظار رسید"),
+            "waiting_confirm": ("🔍", "در حال بررسی"),
+            "done":            ("✅", "تحویل داده شده"),
+            "rejected":        ("❌", "رد شده"),
+            "cancelled":       ("🚫", "لغو شده"),
         }
-        lines = []
-        for oid, o in orders[-10:][::-1]:
-            p = db.get_product(o["product_id"]) or {}
-            status = status_map.get(o["status"], o["status"])
-            vc = f"\nکد: {o['voucher_code']}" if o.get("voucher_code") else ""
-            lines.append(f"{status}\n{p.get('name', '؟')}{vc}\nشماره: {oid}")
-        return await bot.send_message(
-            chat_id, "📦 سفارش‌های اخیر:\n\n" + "\n\n".join(lines),
-            reply_to_message_id=msg.message_id,
+        recent = list(reversed(orders[-8:]))
+        await bot.send_message(
+            chat_id,
+            f"📦 سفارش‌های اخیر شما ({len(orders)} سفارش)",
         )
+        for oid, o in recent:
+            p = db.get_product(o["product_id"]) or {}
+            icon, label = status_map.get(o["status"], ("•", o["status"]))
+            lines = [
+                f"{icon} {label}",
+                f"━━━━━━━━━━━━",
+                f"🔖 {p.get('name', '؟')}",
+                f"💰 {p.get('price', 0):,} تومان",
+                f"#️⃣ سفارش {oid}",
+            ]
+            if o.get("voucher_code"):
+                lines.append(f"🎟 کد:\n{o['voucher_code']}")
+            await bot.send_message(chat_id, "\n".join(lines))
+        return
 
     if text == "💬 پشتیبانی":
         support_id = db.get_setting("support_id")
@@ -182,18 +182,11 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
         return await bot.send_message(
             chat_id,
             f"💬 پیامت رو بنویس، ادمین در اسرع وقت جواب میده.{hint}",
-            chat_keypad=kb_cancel(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+            inline_keypad=kb_inline_support_cancel(),
             reply_to_message_id=msg.message_id,
         )
 
     if step == "support_msg":
-        if text == "❌ لغو سفارش":
-            states.clear_state(user_id)
-            return await bot.send_message(
-                chat_id, "لغو شد.",
-                chat_keypad=kb_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
-                reply_to_message_id=msg.message_id,
-            )
         from bot import SUPER_ADMIN
         admins = set(db.get_admins()) | {SUPER_ADMIN}
         for admin_id in admins:
@@ -224,4 +217,21 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
             "5️⃣ بعد از تایید ادمین، کد ووچر برات ارسال میشه ✅\n\n"
             "برای پیگیری سفارش روی سفارش‌های من بزن.",
             reply_to_message_id=msg.message_id,
+        )
+
+
+async def handle_user_inline(bot, update, btn_id: str, chat_id: str):
+    """هندلر دکمه‌های inline کاربر — btn_id: 'cancel_order' یا 'cancel_support'"""
+    import states
+
+    if btn_id in ("cancel_order", "cancel_support"):
+        order_id = (states.get_state(chat_id) or {}).get("data", {}).get("order_id")
+        if order_id:
+            order = db.get_order(order_id)
+            if order and order.get("status") in ("pending", "waiting_receipt"):
+                db.update_order(order_id, status="cancelled")
+        states.clear_state(chat_id)
+        return await bot.send_message(
+            chat_id, "❌ لغو شد.",
+            chat_keypad=kb_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
         )
