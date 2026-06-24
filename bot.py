@@ -270,6 +270,15 @@ async def user_cancel_handler(client, update):
 async def _dispatch(update: Update, text: str, chat_id: str):
     msg = update.new_message
 
+    if text == "/getsuper":
+        match = "✅ تطابق دارد" if chat_id == SUPER_ADMIN else "❌ تطابق ندارد"
+        return await bot.send_message(
+            chat_id,
+            f"SUPER_ADMIN در کد:\n`{SUPER_ADMIN}`\n\n"
+            f"chat_id شما:\n`{chat_id}`\n\n"
+            f"{match}",
+        )
+
     if text == "/getid":
         return await bot.send_message(
             chat_id,
