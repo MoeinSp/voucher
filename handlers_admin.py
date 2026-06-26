@@ -228,6 +228,27 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
         await _send_users_page(bot, chat_id, 0)
         return
 
+    # ── پیام همگانی ──────────────────────────────────────────────────────────
+    if text == "📢 پیام همگانی":
+        states.set_state(user_id, "broadcast")
+        return await bot.send_message(chat_id, "📢 متن پیام همگانی رو بنویس:\n(برای لغو — بزن)")
+
+    if step == "broadcast":
+        if text.strip() in ("-", "—"):
+            states.clear_state(user_id)
+            return await bot.send_message(chat_id, "❌ لغو شد.", chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW)
+        states.clear_state(user_id)
+        chat_ids = db.get_all_chat_ids()
+        sent = 0
+        await bot.send_message(chat_id, f"📤 در حال ارسال به {len(chat_ids)} نفر...")
+        for uid in chat_ids:
+            try:
+                await bot.send_message(uid, text)
+                sent += 1
+            except Exception:
+                pass
+        return await bot.send_message(chat_id, f"✅ ارسال تمام شد — {sent} نفر")
+
 
 async def _send_products_page(bot, chat_id: str, page: int):
     products = db.get_all_products()
