@@ -41,7 +41,37 @@ async def handle_super(bot, update, text: str, user_id: str, chat_id: str):
             inline_keypad=kb_admin_rm_confirm(new_id),  # reuse layout
         )
 
+    # ── broadcast ────────────────────────────────────────────────────────────
+    if text == "📢 پیام همگانی":
+        states.set_state(user_id, "broadcast")
+        return await bot.send_message(
+            chat_id,
+            "📢 متن پیام همگانی رو بنویس:\n(برای لغو — بزن)",
+        )
+
     step = states.get_step(user_id)
+
+    if step == "broadcast":
+        if text.strip() in ("-", "—"):
+            states.clear_state(user_id)
+            return await bot.send_message(chat_id, "❌ لغو شد.", chat_keypad=kb_super_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW)
+        states.clear_state(user_id)
+        chat_ids = db.get_all_chat_ids()
+        sent = failed = 0
+        await bot.send_message(chat_id, f"📤 در حال ارسال به {len(chat_ids)} نفر...")
+        for uid in chat_ids:
+            try:
+                await bot.send_message(uid, text)
+                sent += 1
+            except Exception:
+                failed += 1
+        return await bot.send_message(
+            chat_id,
+            f"✅ ارسال تمام شد\n\n"
+            f"📨 موفق: {sent}\n"
+            f"❌ ناموفق: {failed}",
+        )
+
     if step == "add_admin":
         new_id = states.get_state(user_id)["data"].get("admin_id", "")
         if db.add_admin(new_id):

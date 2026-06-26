@@ -90,7 +90,7 @@ def create_order(user_id: str, product_id: str) -> str:
     data["orders"][order_id] = {
         "user_id":      user_id,
         "product_id":   product_id,
-        "status":       "waiting_confirm",
+        "status":       "pending",
         "receipt":      None,
         "voucher_code": None,
         "created_at":   int(time.time()),
@@ -136,6 +136,11 @@ def get_user(user_id: str) -> dict | None:
 
 def get_all_users() -> dict:
     return _load()["users"]
+
+
+def get_all_chat_ids() -> list[str]:
+    """همه chat_id های کاربران برای broadcast"""
+    return list(_load()["users"].keys())
 
 
 # ── admins ────────────────────────────────────────────────────────────────────
