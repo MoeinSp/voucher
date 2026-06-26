@@ -35,10 +35,11 @@ async def handle_super(bot, update, text: str, user_id: str, chat_id: str):
             return await bot.send_message(chat_id, "⚠️ آیدی باید با b0 شروع بشه.")
         if new_id in db.get_admins():
             return await bot.send_message(chat_id, "⚠️ این آیدی قبلاً ادمینه.")
+        from keyboards import kb_admin_add_confirm
         return await bot.send_message(
             chat_id,
             f"➕ افزودن ادمین:\n{new_id}\n\nمطمئنی؟",
-            inline_keypad=kb_admin_rm_confirm(new_id),  # reuse layout
+            inline_keypad=kb_admin_add_confirm(new_id),
         )
 
     # ── broadcast ────────────────────────────────────────────────────────────

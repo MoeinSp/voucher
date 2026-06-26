@@ -246,6 +246,27 @@ async def admin_rm_confirm_handler(client, update):
     await _safe(handle_super_inline(bot, update, "armc", uid, chat_id))
 
 
+@bot.on_update(filters.button(r"adda:.*", regex=True))
+async def admin_add_confirm_handler(client, update):
+    chat_id = str(update.chat_id)
+    if not is_super(chat_id):
+        return
+    uid = _btn_id(update).replace("adda:", "").strip()
+    async def _do():
+        import db
+        if db.add_admin(uid):
+            try:
+                await bot.send_message(uid, "✅ شما به عنوان ادمین ربات اضافه شدید.\n/start بزن.")
+            except Exception:
+                pass
+            await bot.send_message(chat_id, f"✅ ادمین {uid} اضافه شد.")
+        else:
+            await bot.send_message(chat_id, "⚠️ این آیدی قبلاً ادمینه.")
+        from handlers_super import _show_admin_list
+        await _show_admin_list(bot, chat_id)
+    await _safe(_do())
+
+
 @bot.on_update(filters.button(r"adm:.*", regex=True))
 async def admin_nav_handler(client, update):
     chat_id = str(update.chat_id)
