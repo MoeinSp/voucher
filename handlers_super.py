@@ -67,9 +67,7 @@ async def handle_super(bot, update, text: str, user_id: str, chat_id: str):
                 failed += 1
         return await bot.send_message(
             chat_id,
-            f"✅ ارسال تمام شد\n\n"
-            f"📨 موفق: {sent}\n"
-            f"❌ ناموفق: {failed}",
+            f"✅ ارسال تمام شد — {sent} نفر",
         )
 
     if step == "add_admin":
