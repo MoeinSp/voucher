@@ -69,8 +69,9 @@ def kb_inline_support_cancel() -> Keypad:
 def kb_admin_main() -> Keypad:
     return Keypad(rows=[
         _row("📋 سفارش‌های در انتظار", "💸 فروش‌های در انتظار"),
-        _row("📦 محصولات", "💳 تنظیم کارت"),
-        _row("➕ افزودن محصول", "📊 آمار"),
+        _row("📦 محصولات خرید", "💸 محصولات فروش"),
+        _row("➕ محصول خرید", "➕ محصول فروش"),
+        _row("💳 تنظیم کارت", "📊 آمار"),
         _row("👥 کاربران", "💬 تنظیم پشتیبانی"),
         _row("📢 پیام همگانی"),
     ])
@@ -112,21 +113,21 @@ def kb_product_card(pid: str, active: bool) -> Keypad:
     ])
 
 
-def kb_product_del_confirm(pid: str) -> Keypad:
+def kb_product_del_confirm(pid: str, side: str = "buy") -> Keypad:
     return Keypad(rows=[
         _irow(
             (f"pdc:{pid}", "✅ بله، حذف شود"),
-            ("pp:0", "↩️ انصراف"),
+            (f"pp:{side}:0", "↩️ انصراف"),
         ),
     ])
 
 
-def kb_products_nav(page: int, total: int) -> Keypad | None:
+def kb_products_nav(page: int, total: int, side: str = "buy") -> Keypad | None:
     has_prev = page > 0
     has_next = (page + 1) * PAGE_SIZE < total
     btns = []
-    if has_prev: btns.append(_bi(f"pp:{page - 1}", f"◀️ قبلی"))
-    if has_next: btns.append(_bi(f"pp:{page + 1}", f"▶️ بعدی"))
+    if has_prev: btns.append(_bi(f"pp:{side}:{page - 1}", f"◀️ قبلی"))
+    if has_next: btns.append(_bi(f"pp:{side}:{page + 1}", f"▶️ بعدی"))
     if not btns:
         return None
     return Keypad(rows=[KeypadRow(buttons=btns)])
@@ -165,8 +166,9 @@ def kb_super_main() -> Keypad:
     return Keypad(rows=[
         _row("👑 مدیریت ادمین‌ها"),
         _row("📋 سفارش‌های در انتظار", "💸 فروش‌های در انتظار"),
-        _row("📦 محصولات", "💳 تنظیم کارت"),
-        _row("➕ افزودن محصول", "👥 کاربران"),
+        _row("📦 محصولات خرید", "💸 محصولات فروش"),
+        _row("➕ محصول خرید", "➕ محصول فروش"),
+        _row("💳 تنظیم کارت", "👥 کاربران"),
         _row("💬 تنظیم پشتیبانی", "📊 آمار"),
         _row("📢 پیام همگانی"),
     ])

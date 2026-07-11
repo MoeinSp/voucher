@@ -248,18 +248,27 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
                 chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
             )
 
-    # ── محصولات (کارت inline) ───────────────────────────────────────────────
-    if text == "📦 محصولات":
-        await _send_products_page(bot, chat_id, 0)
+    # ── محصولات خرید / فروش ──────────────────────────────────────────────────
+    if text == "📦 محصولات خرید":
+        await _send_products_page(bot, chat_id, 0, side="buy")
         return
 
-    # ── افزودن محصول ─────────────────────────────────────────────────────────
-    if text == "➕ افزودن محصول":
-        states.set_state(user_id, "add_product_name")
-        return await bot.send_message(chat_id, "📝 اسم محصول جدید:")
+    if text == "💸 محصولات فروش":
+        await _send_products_page(bot, chat_id, 0, side="sell")
+        return
+
+    # ── افزودن محصول خرید / فروش ─────────────────────────────────────────────
+    if text == "➕ محصول خرید":
+        states.set_state(user_id, "add_product_name", side="buy")
+        return await bot.send_message(chat_id, "📝 اسم محصول خرید:")
+
+    if text == "➕ محصول فروش":
+        states.set_state(user_id, "add_product_name", side="sell")
+        return await bot.send_message(chat_id, "📝 اسم محصول فروش:")
 
     if step == "add_product_name":
-        states.set_state(user_id, "add_product_price", name=text)
+        side = states.get_state(user_id)["data"].get("side", "buy")
+        states.set_state(user_id, "add_product_price", name=text, side=side)
         return await bot.send_message(chat_id, "💰 قیمت (تومان):")
 
     if step == "add_product_price":
@@ -268,18 +277,23 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
         except ValueError:
             return await bot.send_message(chat_id, "⚠️ عدد صحیح وارد کن:")
         data = states.get_state(user_id)["data"]
-        states.set_state(user_id, "add_product_desc", name=data["name"], price=price)
+        states.set_state(
+            user_id, "add_product_desc",
+            name=data["name"], price=price, side=data.get("side", "buy"),
+        )
         return await bot.send_message(chat_id, "📄 توضیحات (یا — برای رد کردن):")
 
     if step == "add_product_desc":
         data = states.get_state(user_id)["data"]
         desc = "" if text.strip() in ("-", "—") else text.strip()
+        side = data.get("side", "buy")
         pid = str(uuid.uuid4())[:8]
-        db.add_product(pid, data["name"], data["price"], desc)
+        db.add_product(pid, data["name"], data["price"], desc, side=side)
         states.clear_state(user_id)
+        kind = "خرید" if side == "buy" else "فروش"
         return await bot.send_message(
             chat_id,
-            f"✅ محصول اضافه شد\n\n"
+            f"✅ محصول {kind} اضافه شد\n\n"
             f"🔖 {data['name']}\n"
             f"💰 {data['price']:,} تومان"
             + (f"\n📄 {desc}" if desc else ""),
@@ -335,7 +349,8 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
     if text == "📊 آمار":
         orders = db.get("orders")
         users = db.get_all_users()
-        products = db.get_all_products()
+        buy_products  = db.get_all_products("buy")
+        sell_products = db.get_all_products("sell")
         buy_orders  = [o for o in orders.values() if db.get_order_type(o) == "buy"]
         sell_orders = [o for o in orders.values() if db.get_order_type(o) == "sell"]
         done_buy    = sum(1 for o in buy_orders if o["status"] == "done")
@@ -344,13 +359,15 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
         pending_sell= sum(1 for o in sell_orders if o["status"] == "waiting_confirm")
         rejected    = sum(1 for o in orders.values() if o["status"] == "rejected")
         cancelled   = sum(1 for o in orders.values() if o["status"] == "cancelled")
-        active_p    = sum(1 for p in products.values() if p.get("active", True))
+        active_buy  = sum(1 for p in buy_products.values() if p.get("active", True))
+        active_sell = sum(1 for p in sell_products.values() if p.get("active", True))
         return await bot.send_message(
             chat_id,
             f"📊 آمار کلی\n"
             f"━━━━━━━━━━━━━━━━━\n"
             f"👥 کاربران: {len(users)}\n"
-            f"📦 محصولات: {active_p} فعال / {len(products)} کل\n"
+            f"🛒 محصولات خرید: {active_buy} فعال / {len(buy_products)} کل\n"
+            f"💸 محصولات فروش: {active_sell} فعال / {len(sell_products)} کل\n"
             f"━━━━━━━━━━━━━━━━━\n"
             f"🛒 خرید — ✅ {done_buy}  🔍 {pending_buy}\n"
             f"💸 فروش — ✅ {done_sell}  🔍 {pending_sell}\n"
@@ -386,10 +403,11 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
         return await bot.send_message(chat_id, f"✅ ارسال تمام شد — {sent} نفر")
 
 
-async def _send_products_page(bot, chat_id: str, page: int):
-    products = db.get_all_products()
+async def _send_products_page(bot, chat_id: str, page: int, side: str = "buy"):
+    products = db.get_all_products(side)
+    kind = "خرید" if side == "buy" else "فروش"
     if not products:
-        return await bot.send_message(chat_id, "⚠️ هنوز محصولی اضافه نکردی.")
+        return await bot.send_message(chat_id, f"⚠️ هنوز محصول {kind} اضافه نکردی.")
 
     items = list(products.items())
     start = page * PAGE_SIZE
@@ -398,7 +416,7 @@ async def _send_products_page(bot, chat_id: str, page: int):
 
     await bot.send_message(
         chat_id,
-        f"📦 محصولات — صفحه {page + 1}\n"
+        f"📦 محصولات {kind} — صفحه {page + 1}\n"
         f"({start + 1} تا {end} از {len(items)} محصول)",
     )
     for pid, p in page_items:
@@ -410,7 +428,7 @@ async def _send_products_page(bot, chat_id: str, page: int):
             f"{icon} {p['name']}\n💰 {p['price']:,} تومان{desc_line}",
             inline_keypad=kb_product_card(pid, active),
         )
-    nav = kb_products_nav(page, len(items))
+    nav = kb_products_nav(page, len(items), side=side)
     if nav:
         await bot.send_message(chat_id, "─", inline_keypad=nav)
 

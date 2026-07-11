@@ -78,7 +78,7 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
         )
 
     if text == "🛒 خرید ووچر":
-        products = db.get_active_products()
+        products = db.get_active_products("buy")
         if not products:
             return await bot.send_message(
                 chat_id, "⚠️ در حال حاضر محصولی موجود نیست.\nبعداً دوباره چک کن.",
@@ -92,7 +92,7 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
         )
 
     if text == "💸 فروش ووچر":
-        products = db.get_active_products()
+        products = db.get_active_products("sell")
         if not products:
             return await bot.send_message(
                 chat_id, "⚠️ در حال حاضر محصولی برای فروش موجود نیست.\nبعداً دوباره چک کن.",
@@ -107,7 +107,7 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
 
     if step == "selecting_product":
         page = states.get_state(user_id)["data"].get("page", 0)
-        products = db.get_active_products()
+        products = db.get_active_products("buy")
 
         if text == "🔙 بازگشت":
             states.clear_state(user_id)
@@ -169,7 +169,7 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
     # ── انتخاب محصول برای فروش ───────────────────────────────────────────────
     if step == "selecting_sell_product":
         page = states.get_state(user_id)["data"].get("page", 0)
-        products = db.get_active_products()
+        products = db.get_active_products("sell")
 
         if text == "🔙 بازگشت":
             states.clear_state(user_id)

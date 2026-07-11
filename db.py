@@ -7,7 +7,7 @@ DB_FILE = os.environ.get("DATA_FILE", os.path.join(os.path.dirname(__file__), "d
 
 _default = {
     "orders":   {},   # order_id → {user_id, product_id, status, type, receipt, voucher_code, ...}
-    "products": {},   # pid → {name, price, description, active}
+    "products": {},   # pid → {name, price, description, active, side: buy|sell}
     "users":    {},   # user_id → {name}
     "admins":   [],
     "settings": {},   # card_number, card_name
@@ -45,9 +45,22 @@ def set_setting(key: str, value) -> None:
 
 # ── products ──────────────────────────────────────────────────────────────────
 
-def add_product(pid: str, name: str, price: int, description: str = "") -> None:
+def get_product_side(product: dict | None) -> str:
+    """محصول‌های قدیمی بدون side = خرید."""
+    if not product:
+        return "buy"
+    return product.get("side") or "buy"
+
+
+def add_product(pid: str, name: str, price: int, description: str = "", side: str = "buy") -> None:
     data = _load()
-    data["products"][pid] = {"name": name, "price": price, "description": description, "active": True}
+    data["products"][pid] = {
+        "name": name,
+        "price": price,
+        "description": description,
+        "active": True,
+        "side": side if side in ("buy", "sell") else "buy",
+    }
     _save(data)
 
 
@@ -55,12 +68,18 @@ def get_product(pid: str) -> dict | None:
     return _load()["products"].get(pid)
 
 
-def get_all_products() -> dict:
-    return _load()["products"]
+def get_all_products(side: str | None = None) -> dict:
+    products = _load()["products"]
+    if side is None:
+        return products
+    return {pid: p for pid, p in products.items() if get_product_side(p) == side}
 
 
-def get_active_products() -> dict:
-    return {pid: p for pid, p in _load()["products"].items() if p.get("active", True)}
+def get_active_products(side: str = "buy") -> dict:
+    return {
+        pid: p for pid, p in _load()["products"].items()
+        if p.get("active", True) and get_product_side(p) == side
+    }
 
 
 def toggle_product(pid: str) -> bool | None:

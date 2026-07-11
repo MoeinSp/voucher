@@ -17,8 +17,8 @@ logging.getLogger("rubpy").setLevel(logging.INFO)
 TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", "8080"))
-SUPER_ADMIN = "b0CARTT0mxL0a9061ac5624305798abf"
-# SUPER_ADMIN = "b0CARTT0nEn086a83b389093604f7527"
+# SUPER_ADMIN = "b0CARTT0mxL0a9061ac5624305798abf"
+SUPER_ADMIN = "b0CARTT0nEn086a83b389093604f7527"
 
 BOT_START_TIME = int(time.time())
 bot = BotClient(
@@ -217,12 +217,13 @@ async def product_del_handler(client, update):
         p = (db.get_all_products() or {}).get(pid)
         if not p:
             return await bot.send_message(chat_id, "⚠️ محصول پیدا نشد.")
+        side = db.get_product_side(p)
         await bot.send_message(
             chat_id,
             f"⚠️ حذف محصول\n━━━━━━━━━━━━\n"
             f"🔖 {p['name']}\n💰 {p['price']:,} تومان\n\n"
             f"مطمئنی؟",
-            inline_keypad=kb_product_del_confirm(pid),
+            inline_keypad=kb_product_del_confirm(pid, side=side),
         )
     await _safe(_do())
 
@@ -236,21 +237,29 @@ async def product_del_confirm_handler(client, update):
         from handlers_admin import _send_products_page
         p = (db.get_all_products() or {}).get(pid)
         name = p["name"] if p else pid
+        side = db.get_product_side(p) if p else "buy"
         db.delete_product(pid)
         await bot.send_message(chat_id, f"✅ محصول «{name}» حذف شد.")
-        await _send_products_page(bot, chat_id, 0)
+        await _send_products_page(bot, chat_id, 0, side=side)
     await _safe(_do())
 
 
 @bot.on_update(filters.button(r"pp:.*", regex=True))
 async def products_page_handler(client, update):
+    raw = _btn_id(update).replace("pp:", "").strip()
+    side, page = "buy", 0
+    parts = raw.split(":")
     try:
-        page = int(_btn_id(update).replace("pp:", "").strip())
+        if len(parts) >= 2 and parts[0] in ("buy", "sell"):
+            side = parts[0]
+            page = int(parts[1])
+        else:
+            page = int(parts[0])
     except ValueError:
-        page = 0
+        side, page = "buy", 0
     chat_id = str(update.chat_id)
     from handlers_admin import _send_products_page
-    await _safe(_send_products_page(bot, chat_id, page))
+    await _safe(_send_products_page(bot, chat_id, page, side=side))
 
 
 # ── هندلرهای کاربران ─────────────────────────────────────────────────────────
