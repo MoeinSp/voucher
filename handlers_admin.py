@@ -1,20 +1,34 @@
+"""
+هندلرهای پنل ادمین
+"""
 import uuid
 import db
 import states
 from keyboards import (
-    kb_admin_main, kb_admin_order, kb_main,
+    kb_admin_main, kb_admin_order, kb_admin_sell_order, kb_main,
     kb_product_card, kb_products_nav,
     kb_users_nav, ChatKeypadTypeEnum,
     USERS_PAGE, PAGE_SIZE,
 )
 
 _STATUS = {
-    "pending":         "⏳ در انتظار رسید",
+    "pending":         "⏳ در انتظار تکمیل",
     "waiting_confirm": "🔍 در بررسی",
-    "done":            "✅ تحویل‌شده",
+    "done":            "✅ انجام‌شده",
     "rejected":        "❌ رد‌شده",
     "cancelled":       "🚫 لغو‌شده",
 }
+
+
+def _sell_info_text(order: dict, product: dict, oid: str) -> str:
+    return (
+        f"💸 فروش #{oid}\n"
+        f"━━━━━━━━━━━━\n"
+        f"🔖 {product.get('name', '؟')} — {product.get('price', 0):,} تومان\n"
+        f"🎟 کد ووچر:\n{order.get('voucher_code', '—')}\n\n"
+        f"💳 شماره کارت:\n{order.get('seller_card', '—')}\n"
+        f"👤 {order.get('seller_first_name', '')} {order.get('seller_last_name', '')}"
+    )
 
 
 async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
@@ -32,21 +46,21 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
             chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
         )
 
-    # ── سفارش‌های در انتظار ───────────────────────────────────────────────────
+    # ── سفارش‌های خرید در انتظار ─────────────────────────────────────────────
     if text == "📋 سفارش‌های در انتظار":
-        orders = db.get_pending_orders()
+        orders = db.get_pending_buy_orders()
         if not orders:
             return await bot.send_message(
                 chat_id,
-                "✅ هیچ سفارش جدیدی در صف نداری.",
+                "✅ هیچ سفارش خریدی در صف نداری.",
             )
-        await bot.send_message(chat_id, f"📋 {len(orders)} سفارش در انتظار:")
+        await bot.send_message(chat_id, f"📋 {len(orders)} سفارش خرید در انتظار:")
         for oid, o in orders:
             p = db.get_product(o["product_id"]) or {}
             u = db.get_user(o["user_id"]) or {}
             await bot.send_message(
                 chat_id,
-                f"📦 سفارش #{oid}\n"
+                f"📦 سفارش خرید #{oid}\n"
                 f"━━━━━━━━━━━━\n"
                 f"👤 {u.get('name', 'ناشناس')}\n"
                 f"🔖 {p.get('name', '؟')} — {p.get('price', 0):,} تومان\n"
@@ -55,7 +69,27 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
             )
         return
 
-    # ── ورود کد ووچر (بعد از تایید inline) ──────────────────────────────────
+    # ── فروش‌های در انتظار ───────────────────────────────────────────────────
+    if text == "💸 فروش‌های در انتظار":
+        orders = db.get_pending_sell_orders()
+        if not orders:
+            return await bot.send_message(
+                chat_id,
+                "✅ هیچ درخواست فروشی در صف نداری.",
+            )
+        await bot.send_message(chat_id, f"💸 {len(orders)} فروش در انتظار:")
+        for oid, o in orders:
+            p = db.get_product(o["product_id"]) or {}
+            u = db.get_user(o["user_id"]) or {}
+            await bot.send_message(
+                chat_id,
+                f"👤 {u.get('name', 'ناشناس')}\n"
+                f"{_sell_info_text(o, p, oid)}",
+                inline_keypad=kb_admin_sell_order(oid),
+            )
+        return
+
+    # ── ورود کد ووچر (بعد از تایید خرید) ────────────────────────────────────
     if step == "enter_voucher_code":
         order_id = states.get_state(user_id)["data"]["order_id"]
         order = db.get_order(order_id)
@@ -94,14 +128,76 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
             chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
         )
 
-    # ── دلیل رد سفارش (بعد از رد inline) ────────────────────────────────────
-    if step == "reject_reason":
+    # ── ارسال رسید واریز به فروشنده (بعد از تایید فروش) ─────────────────────
+    if step == "enter_sell_receipt":
         order_id = states.get_state(user_id)["data"]["order_id"]
+        order = db.get_order(order_id)
+        if not order:
+            states.clear_state(user_id)
+            return await bot.send_message(chat_id, "⚠️ سفارش پیدا نشد.")
+
+        if text != "__photo__":
+            return await bot.send_message(
+                chat_id,
+                "📸 لطفاً فقط عکس رسید واریز رو بفرست.",
+            )
+
+        state_data = states.get_state(user_id) or {}
+        receipt_msg_id = state_data.get("data", {}).get("admin_receipt_msg_id")
+        product = db.get_product(order["product_id"]) or {}
+
+        db.update_order(
+            order_id,
+            status="done",
+            admin_receipt="📸 عکس رسید واریز",
+            admin_receipt_msg_id=receipt_msg_id,
+        )
+        states.clear_state(user_id)
+
+        sent = False
+        try:
+            await bot.send_message(
+                order["user_id"],
+                f"🎉 فروش شما تایید شد!\n\n"
+                f"🔖 {product.get('name', '')}\n"
+                f"💰 {product.get('price', 0):,} تومان\n"
+                f"━━━━━━━━━━━━━━━━━\n"
+                f"📸 رسید واریز به کارتت:",
+                chat_keypad=kb_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+            )
+            if receipt_msg_id:
+                try:
+                    await bot.forward_message(chat_id, receipt_msg_id, order["user_id"])
+                except Exception:
+                    await bot.send_message(order["user_id"], "🧾 رسید واریز ارسال شد.")
+            sent = True
+        except Exception as e:
+            print(f"[send_sell_receipt] error: {e}")
+
+        if sent:
+            return await bot.send_message(
+                chat_id,
+                f"✅ رسید واریز برای فروشنده ارسال شد.\n#️⃣ فروش #{order_id}",
+                chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+            )
+        return await bot.send_message(
+            chat_id,
+            f"⚠️ ارسال به کاربر ناموفق بود!\n"
+            f"👤 آیدی: {order['user_id']}",
+            chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+        )
+
+    # ── دلیل رد سفارش (خرید یا فروش) ─────────────────────────────────────────
+    if step == "reject_reason":
+        data = states.get_state(user_id)["data"]
+        order_id = data["order_id"]
         order = db.get_order(order_id)
         reason = "" if text.strip() == "-" else text.strip()
         db.update_order(order_id, status="rejected")
         states.clear_state(user_id)
-        msg_user = "❌ سفارش شما رد شد."
+        otype = db.get_order_type(order)
+        kind = "فروش" if otype == "sell" else "سفارش"
+        msg_user = f"❌ {kind} شما رد شد."
         if reason:
             msg_user += f"\n\n📝 دلیل: {reason}"
         try:
@@ -112,9 +208,45 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
         except Exception:
             pass
         return await bot.send_message(
-            chat_id, "❌ سفارش رد شد و کاربر مطلع شد.",
+            chat_id, f"❌ {kind} رد شد و کاربر مطلع شد.",
             chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
         )
+
+    # ── ارسال پیام به کاربر سفارش ────────────────────────────────────────────
+    if step == "send_order_msg":
+        data = states.get_state(user_id)["data"]
+        order_id = data["order_id"]
+        order = db.get_order(order_id)
+        if not order:
+            states.clear_state(user_id)
+            return await bot.send_message(chat_id, "⚠️ سفارش پیدا نشد.")
+
+        if text.strip() in ("-", "—"):
+            states.clear_state(user_id)
+            return await bot.send_message(
+                chat_id, "❌ ارسال پیام لغو شد.",
+                chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+            )
+
+        states.clear_state(user_id)
+        otype = db.get_order_type(order)
+        kind = "فروش" if otype == "sell" else "سفارش"
+        try:
+            await bot.send_message(
+                order["user_id"],
+                f"💬 پیام ادمین — {kind} #{order_id}\n"
+                f"━━━━━━━━━━━━━━━━━\n"
+                f"{text}",
+            )
+            return await bot.send_message(
+                chat_id, f"✅ پیام برای کاربر ارسال شد.",
+                chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+            )
+        except Exception as e:
+            return await bot.send_message(
+                chat_id, f"⚠️ ارسال ناموفق بود: {e}",
+                chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
+            )
 
     # ── محصولات (کارت inline) ───────────────────────────────────────────────
     if text == "📦 محصولات":
@@ -204,11 +336,15 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
         orders = db.get("orders")
         users = db.get_all_users()
         products = db.get_all_products()
-        done     = sum(1 for o in orders.values() if o["status"] == "done")
-        pending  = sum(1 for o in orders.values() if o["status"] == "waiting_confirm")
-        rejected = sum(1 for o in orders.values() if o["status"] == "rejected")
-        cancelled= sum(1 for o in orders.values() if o["status"] == "cancelled")
-        active_p = sum(1 for p in products.values() if p.get("active", True))
+        buy_orders  = [o for o in orders.values() if db.get_order_type(o) == "buy"]
+        sell_orders = [o for o in orders.values() if db.get_order_type(o) == "sell"]
+        done_buy    = sum(1 for o in buy_orders if o["status"] == "done")
+        done_sell   = sum(1 for o in sell_orders if o["status"] == "done")
+        pending_buy = sum(1 for o in buy_orders if o["status"] == "waiting_confirm")
+        pending_sell= sum(1 for o in sell_orders if o["status"] == "waiting_confirm")
+        rejected    = sum(1 for o in orders.values() if o["status"] == "rejected")
+        cancelled   = sum(1 for o in orders.values() if o["status"] == "cancelled")
+        active_p    = sum(1 for p in products.values() if p.get("active", True))
         return await bot.send_message(
             chat_id,
             f"📊 آمار کلی\n"
@@ -216,8 +352,8 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
             f"👥 کاربران: {len(users)}\n"
             f"📦 محصولات: {active_p} فعال / {len(products)} کل\n"
             f"━━━━━━━━━━━━━━━━━\n"
-            f"✅ تحویل‌شده: {done}\n"
-            f"🔍 در بررسی: {pending}\n"
+            f"🛒 خرید — ✅ {done_buy}  🔍 {pending_buy}\n"
+            f"💸 فروش — ✅ {done_sell}  🔍 {pending_sell}\n"
             f"❌ ردشده: {rejected}\n"
             f"🚫 لغوشده: {cancelled}\n"
             f"📋 مجموع: {len(orders)}",
@@ -297,7 +433,7 @@ async def _send_users_page(bot, chat_id: str, page: int):
         name = u.get("name") or "بی‌نام"
         order_count = sum(1 for o in orders.values() if o.get("user_id") == uid)
         done_count  = sum(1 for o in orders.values() if o.get("user_id") == uid and o["status"] == "done")
-        order_info = f"{done_count} خرید" if done_count else (f"{order_count} سفارش" if order_count else "")
+        order_info = f"{done_count} انجام‌شده" if done_count else (f"{order_count} سفارش" if order_count else "")
         lines.append(f"#{i}  {name}" + (f"  •  {order_info}" if order_info else ""))
 
     nav = kb_users_nav(page, total)
@@ -316,14 +452,67 @@ async def handle_admin_inline(bot, update, action: str, order_id: str, chat_id: 
     order = db.get_order(order_id)
     print(f"[admin_inline] action={action} order_id={order_id} order={order}")
 
+    # ── خرید ─────────────────────────────────────────────────────────────────
     if action == "confirm":
-        if not order or order["status"] != "waiting_confirm":
+        if not order or order["status"] != "waiting_confirm" or db.get_order_type(order) != "buy":
             return await bot.send_message(chat_id, "⚠️ این سفارش قبلاً پردازش شده یا معتبر نیست.")
         states.set_state(chat_id, "enter_voucher_code", order_id=order_id)
         return await bot.send_message(chat_id, "🎟 کد ووچر رو بنویس:")
 
     if action == "reject":
-        if not order or order["status"] != "waiting_confirm":
+        if not order or order["status"] != "waiting_confirm" or db.get_order_type(order) != "buy":
             return await bot.send_message(chat_id, "⚠️ این سفارش قبلاً پردازش شده یا معتبر نیست.")
         states.set_state(chat_id, "reject_reason", order_id=order_id)
         return await bot.send_message(chat_id, "📝 دلیل رد (یا — برای بدون دلیل):")
+
+    if action == "msg":
+        if not order:
+            return await bot.send_message(chat_id, "⚠️ سفارش پیدا نشد.")
+        states.set_state(chat_id, "send_order_msg", order_id=order_id)
+        return await bot.send_message(
+            chat_id,
+            f"💬 پیام برای کاربر سفارش #{order_id} رو بنویس:\n(برای لغو — بزن)",
+        )
+
+    # ── فروش ─────────────────────────────────────────────────────────────────
+    if action == "sconfirm":
+        if not order or order["status"] != "waiting_confirm" or db.get_order_type(order) != "sell":
+            return await bot.send_message(chat_id, "⚠️ این فروش قبلاً پردازش شده یا معتبر نیست.")
+        product = db.get_product(order["product_id"]) or {}
+        states.set_state(chat_id, "enter_sell_receipt", order_id=order_id)
+        return await bot.send_message(
+            chat_id,
+            f"✅ تایید فروش #{order_id}\n"
+            f"━━━━━━━━━━━━\n"
+            f"💳 واریز کن به:\n{order.get('seller_card', '—')}\n"
+            f"👤 {order.get('seller_first_name', '')} {order.get('seller_last_name', '')}\n"
+            f"💰 {product.get('price', 0):,} تومان\n\n"
+            f"📸 بعد از واریز، عکس رسید رو اینجا بفرست:",
+        )
+
+    if action == "sreject":
+        if not order or order["status"] != "waiting_confirm" or db.get_order_type(order) != "sell":
+            return await bot.send_message(chat_id, "⚠️ این فروش قبلاً پردازش شده یا معتبر نیست.")
+        states.set_state(chat_id, "reject_reason", order_id=order_id)
+        return await bot.send_message(chat_id, "📝 دلیل رد (یا — برای بدون دلیل):")
+
+    if action == "sgetinfo":
+        if not order:
+            return await bot.send_message(chat_id, "⚠️ سفارش پیدا نشد.")
+        product = db.get_product(order["product_id"]) or {}
+        u = db.get_user(order.get("user_id", "")) or {}
+        return await bot.send_message(
+            chat_id,
+            f"👤 {u.get('name', 'ناشناس')}\n"
+            f"{_sell_info_text(order, product, order_id)}\n"
+            f"📌 وضعیت: {_STATUS.get(order.get('status', ''), order.get('status', ''))}",
+        )
+
+    if action == "smsg":
+        if not order:
+            return await bot.send_message(chat_id, "⚠️ سفارش پیدا نشد.")
+        states.set_state(chat_id, "send_order_msg", order_id=order_id)
+        return await bot.send_message(
+            chat_id,
+            f"💬 پیام برای فروشنده سفارش #{order_id} رو بنویس:\n(برای لغو — بزن)",
+        )

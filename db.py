@@ -6,7 +6,7 @@ import random
 DB_FILE = os.environ.get("DATA_FILE", os.path.join(os.path.dirname(__file__), "data.json"))
 
 _default = {
-    "orders":   {},   # order_id → {user_id, product_id, status, receipt, voucher_code, created_at}
+    "orders":   {},   # order_id → {user_id, product_id, status, type, receipt, voucher_code, ...}
     "products": {},   # pid → {name, price, description, active}
     "users":    {},   # user_id → {name}
     "admins":   [],
@@ -83,24 +83,35 @@ def delete_product(pid: str) -> bool:
 
 # ── orders ────────────────────────────────────────────────────────────────────
 
-def create_order(user_id: str, product_id: str) -> str:
+def create_order(user_id: str, product_id: str, order_type: str = "buy", **extra) -> str:
+    """سفارش جدید. order_type: buy | sell — فیلدهای اضافه برای فروش بدون شکستن سفارش‌های قبلی."""
     data = _load()
     data["order_counter"] = data.get("order_counter", 0) + 1
     order_id = str(data["order_counter"])
-    data["orders"][order_id] = {
+    order = {
         "user_id":      user_id,
         "product_id":   product_id,
         "status":       "pending",
+        "type":         order_type,
         "receipt":      None,
         "voucher_code": None,
         "created_at":   int(time.time()),
     }
+    order.update(extra)
+    data["orders"][order_id] = order
     _save(data)
     return order_id
 
 
 def get_order(order_id: str) -> dict | None:
     return _load()["orders"].get(order_id)
+
+
+def get_order_type(order: dict | None) -> str:
+    """سفارش‌های قدیمی بدون type = خرید."""
+    if not order:
+        return "buy"
+    return order.get("type") or "buy"
 
 
 def update_order(order_id: str, **kwargs) -> None:
@@ -116,6 +127,20 @@ def get_user_orders(user_id: str) -> list[tuple[str, dict]]:
 
 def get_pending_orders() -> list[tuple[str, dict]]:
     return [(oid, o) for oid, o in _load()["orders"].items() if o["status"] == "waiting_confirm"]
+
+
+def get_pending_buy_orders() -> list[tuple[str, dict]]:
+    return [
+        (oid, o) for oid, o in get_pending_orders()
+        if get_order_type(o) == "buy"
+    ]
+
+
+def get_pending_sell_orders() -> list[tuple[str, dict]]:
+    return [
+        (oid, o) for oid, o in get_pending_orders()
+        if get_order_type(o) == "sell"
+    ]
 
 
 # ── users ─────────────────────────────────────────────────────────────────────

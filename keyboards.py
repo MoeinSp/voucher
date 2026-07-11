@@ -29,7 +29,7 @@ def _irow(*items) -> KeypadRow:
 
 def kb_main() -> Keypad:
     return Keypad(rows=[
-        _row("🛒 خرید ووچر"),
+        _row("🛒 خرید ووچر", "💸 فروش ووچر"),
         _row("📦 سفارش‌های من", "ℹ️ راهنما"),
         _row("💬 پشتیبانی"),
     ])
@@ -68,7 +68,7 @@ def kb_inline_support_cancel() -> Keypad:
 
 def kb_admin_main() -> Keypad:
     return Keypad(rows=[
-        _row("📋 سفارش‌های در انتظار"),
+        _row("📋 سفارش‌های در انتظار", "💸 فروش‌های در انتظار"),
         _row("📦 محصولات", "💳 تنظیم کارت"),
         _row("➕ افزودن محصول", "📊 آمار"),
         _row("👥 کاربران", "💬 تنظیم پشتیبانی"),
@@ -76,12 +76,27 @@ def kb_admin_main() -> Keypad:
     ])
 
 
-# ── ادمین — inline: سفارش ──────────────────────────────────────────────────
+# ── ادمین — inline: سفارش خرید ─────────────────────────────────────────────
 
 def kb_admin_order(order_id: str) -> Keypad:
     return Keypad(rows=[
         _irow((f"confirm:{order_id}", "✅ تایید"), (f"reject:{order_id}", "❌ رد")),
-        _irow((f"getreceipt:{order_id}", "🧾 دریافت رسید"),),
+        _irow(
+            (f"getreceipt:{order_id}", "🧾 دریافت رسید"),
+            (f"msg:{order_id}", "💬 پیام"),
+        ),
+    ])
+
+
+# ── ادمین — inline: سفارش فروش ─────────────────────────────────────────────
+
+def kb_admin_sell_order(order_id: str) -> Keypad:
+    return Keypad(rows=[
+        _irow((f"sellc:{order_id}", "✅ تایید"), (f"sellr:{order_id}", "❌ رد")),
+        _irow(
+            (f"selli:{order_id}", "💳 اطلاعات فروش"),
+            (f"sellm:{order_id}", "💬 پیام"),
+        ),
     ])
 
 
@@ -149,13 +164,12 @@ def kb_admins_list(admins: list) -> Keypad | None:
 def kb_super_main() -> Keypad:
     return Keypad(rows=[
         _row("👑 مدیریت ادمین‌ها"),
-        _row("📋 سفارش‌های در انتظار", "📊 آمار"),
+        _row("📋 سفارش‌های در انتظار", "💸 فروش‌های در انتظار"),
         _row("📦 محصولات", "💳 تنظیم کارت"),
         _row("➕ افزودن محصول", "👥 کاربران"),
-        _row("💬 تنظیم پشتیبانی"),
+        _row("💬 تنظیم پشتیبانی", "📊 آمار"),
         _row("📢 پیام همگانی"),
     ])
-
 
 # ── سوپر — inline: تایید حذف ادمین ──────────────────────────────────────────
 

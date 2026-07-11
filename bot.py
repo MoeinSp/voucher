@@ -119,6 +119,14 @@ async def admin_reject_handler(client, update):
     await _safe(handle_admin_inline(bot, update, "reject", order_id, chat_id))
 
 
+@bot.on_update(filters.button(r"msg:.*", regex=True))
+async def admin_msg_handler(client, update):
+    chat_id = str(update.chat_id)
+    order_id = _btn_id(update).replace("msg:", "").strip()
+    from handlers_admin import handle_admin_inline
+    await _safe(handle_admin_inline(bot, update, "msg", order_id, chat_id))
+
+
 @bot.on_update(filters.button(r"getreceipt:.*", regex=True))
 async def get_receipt_handler(client, update):
     chat_id = str(update.chat_id)
@@ -139,6 +147,40 @@ async def get_receipt_handler(client, update):
         receipt_text = order.get("receipt", "—")
         await bot.send_message(chat_id, f"🧾 رسید سفارش #{order_id}:\n{receipt_text}")
     await _safe(_do())
+
+
+# ── هندلرهای سفارش فروش ──────────────────────────────────────────────────────
+
+@bot.on_update(filters.button(r"sellc:.*", regex=True))
+async def sell_confirm_handler(client, update):
+    chat_id = str(update.chat_id)
+    order_id = _btn_id(update).replace("sellc:", "").strip()
+    from handlers_admin import handle_admin_inline
+    await _safe(handle_admin_inline(bot, update, "sconfirm", order_id, chat_id))
+
+
+@bot.on_update(filters.button(r"sellr:.*", regex=True))
+async def sell_reject_handler(client, update):
+    chat_id = str(update.chat_id)
+    order_id = _btn_id(update).replace("sellr:", "").strip()
+    from handlers_admin import handle_admin_inline
+    await _safe(handle_admin_inline(bot, update, "sreject", order_id, chat_id))
+
+
+@bot.on_update(filters.button(r"selli:.*", regex=True))
+async def sell_info_handler(client, update):
+    chat_id = str(update.chat_id)
+    order_id = _btn_id(update).replace("selli:", "").strip()
+    from handlers_admin import handle_admin_inline
+    await _safe(handle_admin_inline(bot, update, "sgetinfo", order_id, chat_id))
+
+
+@bot.on_update(filters.button(r"sellm:.*", regex=True))
+async def sell_msg_handler(client, update):
+    chat_id = str(update.chat_id)
+    order_id = _btn_id(update).replace("sellm:", "").strip()
+    from handlers_admin import handle_admin_inline
+    await _safe(handle_admin_inline(bot, update, "smsg", order_id, chat_id))
 
 
 # ── هندلرهای محصولات ─────────────────────────────────────────────────────────
@@ -345,48 +387,72 @@ async def photo_handler(client, update: Update):
     chat_id = str(update.chat_id)
 
     import states
-    if states.get_step(chat_id) != "waiting_receipt":
-        return
-
+    step = states.get_step(chat_id)
     state_data = states.get_state(chat_id) or {}
     order_id = state_data.get("data", {}).get("order_id")
-    if order_id:
-        states.set_state(chat_id, "waiting_receipt", order_id=order_id, receipt_msg_id=str(msg.message_id))
 
-    await _dispatch(update, "__photo__", chat_id)
+    if step == "waiting_receipt":
+        if order_id:
+            states.set_state(chat_id, "waiting_receipt", order_id=order_id, receipt_msg_id=str(msg.message_id))
+        await _dispatch(update, "__photo__", chat_id)
+        return
+
+    if step == "enter_sell_receipt":
+        if order_id:
+            states.set_state(
+                chat_id, "enter_sell_receipt",
+                order_id=order_id, admin_receipt_msg_id=str(msg.message_id),
+            )
+        await _dispatch(update, "__photo__", chat_id)
+        return
 
 
 # ── اطلاع‌رسانی به ادمین‌ها ──────────────────────────────────────────────────
 
 async def _notify_admins(result: tuple, user_chat_id: str, update: Update):
     order_id, order, product = result
-    from keyboards import kb_admin_order
+    from keyboards import kb_admin_order, kb_admin_sell_order
     import db
 
     u = db.get_user(user_chat_id) or {}
     admins = db.get_admins() | {SUPER_ADMIN}
-    receipt_msg_id = order.get("receipt_msg_id")
+    otype = db.get_order_type(order)
 
     for admin_id in admins:
         if not admin_id:
             continue
         try:
-            await bot.send_message(
-                admin_id,
-                f"📦 سفارش جدید #{order_id}\n"
-                f"━━━━━━━━━━━━━━━━━\n"
-                f"👤 {u.get('name', 'ناشناس')}\n"
-                f"🔖 {product['name']}\n"
-                f"💰 {product['price']:,} تومان",
-                inline_keypad=kb_admin_order(order_id),
-            )
-            if receipt_msg_id:
-                try:
-                    await bot.forward_message(user_chat_id, receipt_msg_id, admin_id)
-                except Exception:
-                    await bot.send_message(admin_id, f"🧾 رسید:\n{order.get('receipt', '—')}")
+            if otype == "sell":
+                await bot.send_message(
+                    admin_id,
+                    f"💸 درخواست فروش جدید #{order_id}\n"
+                    f"━━━━━━━━━━━━━━━━━\n"
+                    f"👤 {u.get('name', 'ناشناس')}\n"
+                    f"🔖 {product['name']}\n"
+                    f"💰 {product['price']:,} تومان\n\n"
+                    f"🎟 کد ووچر:\n{order.get('voucher_code', '—')}\n\n"
+                    f"💳 شماره کارت:\n{order.get('seller_card', '—')}\n"
+                    f"👤 {order.get('seller_first_name', '')} {order.get('seller_last_name', '')}",
+                    inline_keypad=kb_admin_sell_order(order_id),
+                )
             else:
-                await bot.send_message(admin_id, f"🧾 رسید:\n{order.get('receipt', '—')}")
+                receipt_msg_id = order.get("receipt_msg_id")
+                await bot.send_message(
+                    admin_id,
+                    f"📦 سفارش جدید #{order_id}\n"
+                    f"━━━━━━━━━━━━━━━━━\n"
+                    f"👤 {u.get('name', 'ناشناس')}\n"
+                    f"🔖 {product['name']}\n"
+                    f"💰 {product['price']:,} تومان",
+                    inline_keypad=kb_admin_order(order_id),
+                )
+                if receipt_msg_id:
+                    try:
+                        await bot.forward_message(user_chat_id, receipt_msg_id, admin_id)
+                    except Exception:
+                        await bot.send_message(admin_id, f"🧾 رسید:\n{order.get('receipt', '—')}")
+                else:
+                    await bot.send_message(admin_id, f"🧾 رسید:\n{order.get('receipt', '—')}")
         except Exception as e:
             print(f"[notify_admin] error for {admin_id}: {e}")
 
