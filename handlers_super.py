@@ -3,6 +3,7 @@
 """
 import db
 import states
+from formatting import copyable
 from keyboards import kb_super_main, kb_admins_list, kb_admin_rm_confirm, ChatKeypadTypeEnum
 from handlers_admin import handle_admin
 
@@ -38,7 +39,7 @@ async def handle_super(bot, update, text: str, user_id: str, chat_id: str):
         from keyboards import kb_admin_add_confirm
         return await bot.send_message(
             chat_id,
-            f"➕ افزودن ادمین:\n{new_id}\n\nمطمئنی؟",
+            f"➕ افزودن ادمین:\n{copyable(new_id)}\n\nمطمئنی؟",
             inline_keypad=kb_admin_add_confirm(new_id),
         )
 
@@ -67,7 +68,7 @@ async def _show_admin_list(bot, chat_id: str):
             "👥 هیچ ادمینی اضافه نکردی.\n\n"
             "برای افزودن بنویس:\nادمین جدید [b0xxx...]",
         )
-    lines = [f"#{i+1}  {a}" for i, a in enumerate(admins)]
+    lines = [f"#{i+1}  {copyable(a)}" for i, a in enumerate(admins)]
     await bot.send_message(
         chat_id,
         f"👑 ادمین‌های فعال ({len(admins)} نفر)\n"
@@ -89,7 +90,7 @@ async def handle_super_inline(bot, update, action: str, payload: str, chat_id: s
             return await bot.send_message(chat_id, "⚠️ این ادمین دیگه توی لیست نیست.")
         return await bot.send_message(
             chat_id,
-            f"❌ حذف ادمین:\n{uid}\n\nمطمئنی؟",
+            f"❌ حذف ادمین:\n{copyable(uid)}\n\nمطمئنی؟",
             inline_keypad=kb_admin_rm_confirm(uid),
         )
 

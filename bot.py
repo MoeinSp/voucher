@@ -1,4 +1,5 @@
 import asyncio
+from formatting import copyable, copyable_money
 import os
 import time
 import logging
@@ -17,8 +18,8 @@ logging.getLogger("rubpy").setLevel(logging.INFO)
 TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", "8080"))
-SUPER_ADMIN = "b0CARTT0mxL0a9061ac5624305798abf"
-# SUPER_ADMIN = "b0CARTT0nEn086a83b389093604f7527"
+# SUPER_ADMIN = "b0CARTT0mxL0a9061ac5624305798abf"
+SUPER_ADMIN = "b0CARTT0nEn086a83b389093604f7527"
 
 BOT_START_TIME = int(time.time())
 bot = BotClient(
@@ -145,7 +146,7 @@ async def get_receipt_handler(client, update):
             except Exception:
                 pass
         receipt_text = order.get("receipt", "—")
-        await bot.send_message(chat_id, f"🧾 رسید سفارش #{order_id}:\n{receipt_text}")
+        await bot.send_message(chat_id, f"🧾 رسید سفارش #{copyable(order_id)}:\n{receipt_text}")
     await _safe(_do())
 
 
@@ -201,7 +202,7 @@ async def product_toggle_handler(client, update):
         label = "فعال ✅" if new_state else "غیرفعال ❌"
         await bot.send_message(
             chat_id,
-            f"{icon} {p['name']} — {label}\n💰 {p['price']:,} تومان",
+            f"{icon} {p['name']} — {label}\n💰 {copyable_money(p['price'])}",
             inline_keypad=kb_product_card(pid, new_state),
         )
     await _safe(_do())
@@ -221,7 +222,7 @@ async def product_del_handler(client, update):
         await bot.send_message(
             chat_id,
             f"⚠️ حذف محصول\n━━━━━━━━━━━━\n"
-            f"🔖 {p['name']}\n💰 {p['price']:,} تومان\n\n"
+            f"🔖 {p['name']}\n💰 {copyable_money(p['price'])}\n\n"
             f"مطمئنی؟",
             inline_keypad=kb_product_del_confirm(pid, side=side),
         )
@@ -434,13 +435,13 @@ async def _notify_admins(result: tuple, user_chat_id: str, update: Update):
             if otype == "sell":
                 await bot.send_message(
                     admin_id,
-                    f"💸 درخواست فروش جدید #{order_id}\n"
+                    f"💸 درخواست فروش جدید #{copyable(order_id)}\n"
                     f"━━━━━━━━━━━━━━━━━\n"
                     f"👤 {u.get('name', 'ناشناس')}\n"
                     f"🔖 {product['name']}\n"
-                    f"💰 {product['price']:,} تومان\n\n"
-                    f"🎟 کد ووچر:\n{order.get('voucher_code', '—')}\n\n"
-                    f"💳 شماره کارت:\n{order.get('seller_card', '—')}\n"
+                    f"💰 {copyable_money(product['price'])}\n\n"
+                    f"🎟 کد ووچر:\n{copyable(order.get('voucher_code'))}\n\n"
+                    f"💳 شماره کارت:\n{copyable(order.get('seller_card'))}\n"
                     f"👤 {order.get('seller_first_name', '')} {order.get('seller_last_name', '')}",
                     inline_keypad=kb_admin_sell_order(order_id),
                 )
@@ -448,11 +449,11 @@ async def _notify_admins(result: tuple, user_chat_id: str, update: Update):
                 receipt_msg_id = order.get("receipt_msg_id")
                 await bot.send_message(
                     admin_id,
-                    f"📦 سفارش جدید #{order_id}\n"
+                    f"📦 سفارش جدید #{copyable(order_id)}\n"
                     f"━━━━━━━━━━━━━━━━━\n"
                     f"👤 {u.get('name', 'ناشناس')}\n"
                     f"🔖 {product['name']}\n"
-                    f"💰 {product['price']:,} تومان",
+                    f"💰 {copyable_money(product['price'])}",
                     inline_keypad=kb_admin_order(order_id),
                 )
                 if receipt_msg_id:

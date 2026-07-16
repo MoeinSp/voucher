@@ -4,6 +4,7 @@
 import uuid
 import db
 import states
+from formatting import copyable, copyable_money
 from keyboards import (
     kb_admin_main, kb_admin_order, kb_admin_sell_order, kb_main,
     kb_product_card, kb_products_nav,
@@ -22,11 +23,11 @@ _STATUS = {
 
 def _sell_info_text(order: dict, product: dict, oid: str) -> str:
     return (
-        f"💸 فروش #{oid}\n"
+        f"💸 فروش #{copyable(oid)}\n"
         f"━━━━━━━━━━━━\n"
-        f"🔖 {product.get('name', '؟')} — {product.get('price', 0):,} تومان\n"
-        f"🎟 کد ووچر:\n{order.get('voucher_code', '—')}\n\n"
-        f"💳 شماره کارت:\n{order.get('seller_card', '—')}\n"
+        f"🔖 {product.get('name', '؟')} — {copyable_money(product.get('price', 0))}\n"
+        f"🎟 کد ووچر:\n{copyable(order.get('voucher_code'))}\n\n"
+        f"💳 شماره کارت:\n{copyable(order.get('seller_card'))}\n"
         f"👤 {order.get('seller_first_name', '')} {order.get('seller_last_name', '')}"
     )
 
@@ -60,10 +61,10 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
             u = db.get_user(o["user_id"]) or {}
             await bot.send_message(
                 chat_id,
-                f"📦 سفارش خرید #{oid}\n"
+                f"📦 سفارش خرید #{copyable(oid)}\n"
                 f"━━━━━━━━━━━━\n"
                 f"👤 {u.get('name', 'ناشناس')}\n"
-                f"🔖 {p.get('name', '؟')} — {p.get('price', 0):,} تومان\n"
+                f"🔖 {p.get('name', '؟')} — {copyable_money(p.get('price', 0))}\n"
                 f"🧾 رسید: {o.get('receipt', '—')}",
                 inline_keypad=kb_admin_order(oid),
             )
@@ -105,7 +106,7 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
                 f"🔖 {product.get('name', '')}\n"
                 f"━━━━━━━━━━━━━━━━━\n"
                 f"🎟 کد ووچر:\n\n"
-                f"{voucher_code}\n\n"
+                f"{copyable(voucher_code)}\n\n"
                 f"━━━━━━━━━━━━━━━━━\n"
                 f"ممنون از خریدت 🙏",
                 chat_keypad=kb_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
@@ -117,14 +118,14 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
         if sent:
             return await bot.send_message(
                 chat_id,
-                f"✅ کد ووچر ارسال شد.\n🎟 {voucher_code}",
+                f"✅ کد ووچر ارسال شد.\n🎟 {copyable(voucher_code)}",
                 chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
             )
         return await bot.send_message(
             chat_id,
             f"⚠️ ارسال به کاربر ناموفق بود!\n"
-            f"🎟 کد: {voucher_code}\n"
-            f"👤 آیدی: {order['user_id']}",
+            f"🎟 کد: {copyable(voucher_code)}\n"
+            f"👤 آیدی: {copyable(order['user_id'])}",
             chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
         )
 
@@ -160,7 +161,7 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
                 order["user_id"],
                 f"🎉 فروش شما تایید شد!\n\n"
                 f"🔖 {product.get('name', '')}\n"
-                f"💰 {product.get('price', 0):,} تومان\n"
+                f"💰 {copyable_money(product.get('price', 0))}\n"
                 f"━━━━━━━━━━━━━━━━━\n"
                 f"📸 رسید واریز به کارتت:",
                 chat_keypad=kb_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
@@ -177,13 +178,13 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
         if sent:
             return await bot.send_message(
                 chat_id,
-                f"✅ رسید واریز برای فروشنده ارسال شد.\n#️⃣ فروش #{order_id}",
+                f"✅ رسید واریز برای فروشنده ارسال شد.\n#️⃣ فروش #{copyable(order_id)}",
                 chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
             )
         return await bot.send_message(
             chat_id,
             f"⚠️ ارسال به کاربر ناموفق بود!\n"
-            f"👤 آیدی: {order['user_id']}",
+            f"👤 آیدی: {copyable(order['user_id'])}",
             chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
         )
 
@@ -234,7 +235,7 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
         try:
             await bot.send_message(
                 order["user_id"],
-                f"💬 پیام ادمین — {kind} #{order_id}\n"
+                f"💬 پیام ادمین — {kind} #{copyable(order_id)}\n"
                 f"━━━━━━━━━━━━━━━━━\n"
                 f"{text}",
             )
@@ -295,7 +296,7 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
             chat_id,
             f"✅ محصول {kind} اضافه شد\n\n"
             f"🔖 {data['name']}\n"
-            f"💰 {data['price']:,} تومان"
+            f"💰 {copyable_money(data['price'])}"
             + (f"\n📄 {desc}" if desc else ""),
             chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
         )
@@ -307,7 +308,7 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
         states.set_state(user_id, "set_card_number")
         return await bot.send_message(
             chat_id,
-            f"💳 کارت فعلی:\n{card_number}\nبه نام: {card_name}\n\n"
+            f"💳 کارت فعلی:\n{copyable(card_number)}\nبه نام: {card_name}\n\n"
             f"شماره کارت جدید:",
         )
 
@@ -322,7 +323,7 @@ async def handle_admin(bot, update, text: str, user_id: str, chat_id: str):
         states.clear_state(user_id)
         return await bot.send_message(
             chat_id,
-            f"✅ کارت ذخیره شد\n💳 {data['card_number']}\nبه نام: {text.strip()}",
+            f"✅ کارت ذخیره شد\n💳 {copyable(data['card_number'])}\nبه نام: {text.strip()}",
             chat_keypad=kb_admin_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
         )
 
@@ -425,7 +426,7 @@ async def _send_products_page(bot, chat_id: str, page: int, side: str = "buy"):
         desc_line = f"\n📄 {p['description']}" if p.get("description") else ""
         await bot.send_message(
             chat_id,
-            f"{icon} {p['name']}\n💰 {p['price']:,} تومان{desc_line}",
+            f"{icon} {p['name']}\n💰 {copyable_money(p['price'])}{desc_line}",
             inline_keypad=kb_product_card(pid, active),
         )
     nav = kb_products_nav(page, len(items), side=side)
@@ -489,7 +490,7 @@ async def handle_admin_inline(bot, update, action: str, order_id: str, chat_id: 
         states.set_state(chat_id, "send_order_msg", order_id=order_id)
         return await bot.send_message(
             chat_id,
-            f"💬 پیام برای کاربر سفارش #{order_id} رو بنویس:\n(برای لغو — بزن)",
+            f"💬 پیام برای کاربر سفارش #{copyable(order_id)} رو بنویس:\n(برای لغو — بزن)",
         )
 
     # ── فروش ─────────────────────────────────────────────────────────────────
@@ -500,11 +501,11 @@ async def handle_admin_inline(bot, update, action: str, order_id: str, chat_id: 
         states.set_state(chat_id, "enter_sell_receipt", order_id=order_id)
         return await bot.send_message(
             chat_id,
-            f"✅ تایید فروش #{order_id}\n"
+            f"✅ تایید فروش #{copyable(order_id)}\n"
             f"━━━━━━━━━━━━\n"
-            f"💳 واریز کن به:\n{order.get('seller_card', '—')}\n"
+            f"💳 واریز کن به:\n{copyable(order.get('seller_card'))}\n"
             f"👤 {order.get('seller_first_name', '')} {order.get('seller_last_name', '')}\n"
-            f"💰 {product.get('price', 0):,} تومان\n\n"
+            f"💰 {copyable_money(product.get('price', 0))}\n\n"
             f"📸 بعد از واریز، عکس رسید رو اینجا بفرست:",
         )
 
@@ -532,5 +533,5 @@ async def handle_admin_inline(bot, update, action: str, order_id: str, chat_id: 
         states.set_state(chat_id, "send_order_msg", order_id=order_id)
         return await bot.send_message(
             chat_id,
-            f"💬 پیام برای فروشنده سفارش #{order_id} رو بنویس:\n(برای لغو — بزن)",
+            f"💬 پیام برای فروشنده سفارش #{copyable(order_id)} رو بنویس:\n(برای لغو — بزن)",
         )

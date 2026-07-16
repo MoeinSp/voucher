@@ -3,15 +3,16 @@
 """
 import db
 import states
+from formatting import copyable, copyable_money
 from keyboards import kb_main, kb_products, kb_cancel, kb_back, kb_inline_cancel, kb_inline_support_cancel, ChatKeypadTypeEnum
 
 
 def _sell_summary(order: dict, product: dict) -> str:
     return (
         f"🔖 {product.get('name', '؟')}\n"
-        f"💰 {product.get('price', 0):,} تومان\n"
-        f"🎟 کد ووچر:\n{order.get('voucher_code', '—')}\n\n"
-        f"💳 شماره کارت:\n{order.get('seller_card', '—')}\n"
+        f"💰 {copyable_money(product.get('price', 0))}\n"
+        f"🎟 کد ووچر:\n{copyable(order.get('voucher_code'))}\n\n"
+        f"💳 شماره کارت:\n{copyable(order.get('seller_card'))}\n"
         f"👤 {order.get('seller_first_name', '')} {order.get('seller_last_name', '')}"
     )
 
@@ -58,7 +59,7 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
             chat_id,
             f"✅ رسید ثبت شد!\n\n"
             f"محصول: {product['name']}\n"
-            f"شماره سفارش: {order_id}\n\n"
+            f"شماره سفارش: {copyable(order_id)}\n\n"
             f"⏳ منتظر تایید ادمین باش...",
             chat_keypad=kb_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
             reply_to_message_id=msg.message_id,
@@ -155,10 +156,10 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
         return await bot.send_message(
             chat_id,
             f"🔖 {p['name']}{desc}\n"
-            f"💰 قیمت: {p['price']:,} تومان\n\n"
+            f"💰 قیمت: {copyable_money(p['price'])}\n\n"
             f"━━━━━━━━━━━━━━━━━\n"
             f"💳 شماره کارت:\n"
-            f"{card_number}\n"
+            f"{copyable(card_number)}\n"
             f"به نام: {card_name}\n\n"
             f"━━━━━━━━━━━━━━━━━\n"
             f"📸 بعد از واریز، عکس رسید رو اینجا بفرست.",
@@ -215,7 +216,7 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
             f"💸 فروش ووچر\n"
             f"━━━━━━━━━━━━━━━━━\n"
             f"🔖 {p['name']}{desc}\n"
-            f"💰 مبلغ دریافتی: {p['price']:,} تومان\n\n"
+            f"💰 مبلغ دریافتی: {copyable_money(p['price'])}\n\n"
             f"🎟 کد ووچر خودت رو بفرست:",
             inline_keypad=kb_inline_cancel(),
             reply_to_message_id=msg.message_id,
@@ -305,7 +306,7 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
             chat_id,
             f"✅ درخواست فروش ثبت شد!\n\n"
             f"{_sell_summary(order, product)}\n\n"
-            f"#️⃣ سفارش: {order_id}\n"
+            f"#️⃣ سفارش: {copyable(order_id)}\n"
             f"⏳ منتظر تایید ادمین باش...",
             chat_keypad=kb_main(), chat_keypad_type=ChatKeypadTypeEnum.NEW,
             reply_to_message_id=msg.message_id,
@@ -339,22 +340,22 @@ async def handle_user(bot, update, text: str, user_id: str, chat_id: str):
                 f"{icon} {label}  •  {kind}",
                 f"━━━━━━━━━━━━",
                 f"🔖 {p.get('name', '؟')}",
-                f"💰 {p.get('price', 0):,} تومان",
-                f"#️⃣ سفارش {oid}",
+                f"💰 {copyable_money(p.get('price', 0))}",
+                f"#️⃣ سفارش {copyable(oid)}",
             ]
             if otype == "buy" and o.get("voucher_code"):
-                lines.append(f"🎟 کد:\n{o['voucher_code']}")
+                lines.append(f"🎟 کد:\n{copyable(o['voucher_code'])}")
             if otype == "sell":
                 if o.get("voucher_code"):
-                    lines.append(f"🎟 کد ارسالی:\n{o['voucher_code']}")
+                    lines.append(f"🎟 کد ارسالی:\n{copyable(o['voucher_code'])}")
                 if o.get("seller_card"):
-                    lines.append(f"💳 {o['seller_card']}")
+                    lines.append(f"💳 {copyable(o['seller_card'])}")
             await bot.send_message(chat_id, "\n".join(lines))
         return
 
     if text == "💬 پشتیبانی":
         support_id = db.get_setting("support_id")
-        hint = f"\n\nیا مستقیم پیام بده:\n{support_id}" if support_id else ""
+        hint = f"\n\nیا مستقیم پیام بده:\n{copyable(support_id)}" if support_id else ""
         states.set_state(user_id, "support_msg")
         return await bot.send_message(
             chat_id,
